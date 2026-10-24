@@ -75,6 +75,32 @@ void CHyprGLRenderer::initRender() {
     g_pHyprOpenGL->makeEGLCurrent();
 }
 
+bool CHyprGLRenderer::clearBuffer(SP<Aquamarine::IBuffer> buffer, uint32_t fmt, const CHyprColor& color) {
+    if (!buffer || m_context.active())
+        return false;
+
+    SP<IRenderbuffer> renderbuffer;
+    try {
+        renderbuffer = getOrCreateRenderbuffer(buffer, fmt);
+    } catch (std::exception& e) {
+        LOG(Log::ERR, "clearBuffer: getOrCreateRenderbuffer failed for {}", NFormatUtils::drmFormatName(fmt));
+        return false;
+    }
+
+    if (!renderbuffer)
+        return false;
+
+    renderbuffer->bind();
+    glClearColor(sc<GLfloat>(color.r), sc<GLfloat>(color.g), sc<GLfloat>(color.b), sc<GLfloat>(color.a));
+    g_pHyprOpenGL->disableScissor();
+    glClear(GL_COLOR_BUFFER_BIT);
+    renderbuffer->unbind();
+
+    // the buffer is scanned out by the next commit, with no fence to wait on
+    glFinish();
+    return true;
+}
+
 bool CHyprGLRenderer::initRenderBuffer(CRenderContext& ctx, SP<Aquamarine::IBuffer> buffer, uint32_t fmt) {
     try {
         ctx.m_currentRenderbuffer = getOrCreateRenderbuffer(buffer, fmt);

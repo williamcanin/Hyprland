@@ -165,6 +165,7 @@ namespace Render {
 
         virtual SP<IRenderbuffer> getOrCreateRenderbuffer(SP<Aquamarine::IBuffer> buffer,
                                                           uint32_t                fmt); // TODO? move to protected and fix CPointerManager::renderHWCursorBuffer
+        virtual bool              clearBuffer(SP<Aquamarine::IBuffer> buffer, uint32_t fmt, const CHyprColor& color); // fills a buffer outside of a render pass
         bool                      commitPendingAndDoExplicitSync(PHLMONITOR pMonitor, std::optional<Monitor::CDamageRing::CTransaction> damage = std::nullopt,
                                                                  const CRegion& renderedDamage = {}); // TODO? move to protected and fix CMonitorFrameScheduler::onPresented
         SP<ITexture>              m_screencopyDeniedTexture;                                          // TODO? make readonly

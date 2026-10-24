@@ -3289,6 +3289,10 @@ void IHyprRenderer::initiateManualCrash() {
     **rc<Config::INTEGER* const*>(Config::mgr()->getConfigValue("debug:damage_tracking").dataptr) = 0;
 }
 
+bool IHyprRenderer::clearBuffer(SP<Aquamarine::IBuffer> buffer, uint32_t fmt, const CHyprColor& color) {
+    return false;
+}
+
 SP<IRenderbuffer> IHyprRenderer::getOrCreateRenderbuffer(SP<Aquamarine::IBuffer> buffer, uint32_t fmt) {
     auto it = std::ranges::find_if(m_renderbuffers, [&](const auto& other) { return other->m_hlBuffer == buffer; });
 
