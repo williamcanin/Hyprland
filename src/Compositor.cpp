@@ -33,6 +33,8 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
 #include "ipc/s1/S1.hpp"
 #include "debug/crash/CrashReporter.hpp"
 #include "render/GLRenderer.hpp"
@@ -644,14 +646,48 @@ void CCompositor::cleanup() {
     Config::watcher().reset();
     g_pAsyncResourceGatherer.reset();
 
-    if (m_aqBackend)
-        m_aqBackend.reset();
+    if (m_aqBackend) {
+        if (Env::envEnabled("HYPRLAND_RETAIN_FRAME_ON_EXIT"))
+            retainScanoutOnExit();
+        else
+            m_aqBackend.reset();
+    }
 
     if (m_critSigSource)
         wl_event_source_remove(m_critSigSource);
 
     // this frees all wayland resources, including sockets
     wl_display_destroy(m_wlDisplay);
+}
+
+void CCompositor::retainScanoutOnExit() {
+    // Destroying the backend disables every output, and closing the DRM fd removes the framebuffers we still own,
+    // which turns off a CRTC that scans one of them out. Either way the monitor loses its signal. Close the scanned out
+    // framebuffers without removing them and keep the backend alive, so the next DRM master (e.g. a login handoff) takes
+    // the CRTCs over with our last frame still on screen.
+    const int FD = m_aqBackend->drmFD();
+    if (FD >= 0) {
+        if (const auto RESOURCES = drmModeGetResources(FD)) {
+            for (int i = 0; i < RESOURCES->count_crtcs; ++i) {
+                const auto CRTC = drmModeGetCrtc(FD, RESOURCES->crtcs[i]);
+                if (!CRTC)
+                    continue;
+
+                if (CRTC->buffer_id) {
+                    if (const int RET = drmModeCloseFB(FD, CRTC->buffer_id); RET)
+                        LOG(Log::ERR, "retainScanoutOnExit: couldn't close framebuffer {} of crtc {}: {}", CRTC->buffer_id, CRTC->crtc_id, strerror(-RET));
+                    else
+                        LOG(Log::DEBUG, "retainScanoutOnExit: crtc {} keeps framebuffer {}", CRTC->crtc_id, CRTC->buffer_id);
+                }
+
+                drmModeFreeCrtc(CRTC);
+            }
+            drmModeFreeResources(RESOURCES);
+        }
+    }
+
+    // intentionally leaked, the process is about to exit
+    new SP<Aquamarine::CBackend>(m_aqBackend);
 }
 
 void CCompositor::initManagers(eManagersInitStage stage) {
