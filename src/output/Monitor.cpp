@@ -2594,7 +2594,18 @@ void CMonitorState::ensureBufferPresent() {
     // this is required for modesetting being possible and might be missing in case of first tests in the renderer
     // where we test modes and buffers
     LOG(Log::DEBUG, "CMonitorState::ensureBufferPresent: no buffer or mismatched format, attaching one from the swapchain for modeset being possible");
-    m_owner->m_output->state->setBuffer(m_owner->m_output->swapchain->next(nullptr));
+    const auto BUFFER = m_owner->m_output->swapchain->next(nullptr);
+
+    // a modeset scans this buffer out until the first frame is rendered, which on startup only happens once the event loop runs.
+    // A fresh swapchain buffer has undefined content (usually black), so fill it with the background color instead. Mode tests
+    // attach it before the commit does, so it's cleared here for both.
+    if (g_pHyprRenderer) {
+        static auto PBACKGROUNDCOLOR = CConfigValue<Config::INTEGER>("misc:background_color");
+        if (!g_pHyprRenderer->clearBuffer(BUFFER, m_owner->m_drmFormat, CHyprColor(*PBACKGROUNDCOLOR)))
+            LOG(Log::DEBUG, "CMonitorState::ensureBufferPresent: couldn't clear the buffer, it will be scanned out as allocated");
+    }
+
+    m_owner->m_output->state->setBuffer(BUFFER);
     m_owner->m_output->swapchain->rollback(); // restore the counter, don't advance the swapchain
 }
 

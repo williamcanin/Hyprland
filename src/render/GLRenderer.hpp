@@ -31,6 +31,7 @@ namespace Render::GL {
         std::vector<SDRMFormat> getDRMFormats() override;
         std::vector<uint64_t>   getDRMFormatModifiers(DRMFormat format) override;
         SP<IFramebuffer>        createFB(const std::string& name = "") override;
+        bool                    clearBuffer(SP<Aquamarine::IBuffer> buffer, uint32_t fmt, const CHyprColor& color) override;
         void                    disableScissor() override;
         void                    blend(bool enabled) override;
         void                    drawShadow(CRenderContext& ctx, const CBox& box, int round, float roundingPower, int range, const Config::CGradientValueData& color, float a,
